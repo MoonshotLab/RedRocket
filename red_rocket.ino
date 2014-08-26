@@ -30,8 +30,6 @@ int currentBasePin = 0;
 
 void setup()
 {
-  Serial.begin(9600);
-
   startTime = millis();
 
   for(int i=0; i<registers; i++){
@@ -51,8 +49,10 @@ void loop()
 {
   timeElapsed = millis() - startTime;
   
+  // get pot value and enforce a minimum timer
   int potValue = analogRead(potentiometer);
-  timeDelay = map(potValue, 240, 990, 50, 2000);
+  timeDelay = map(potValue, 230, 1024, 0, 1000);
+  if(timeDelay < 1) timeDelay = 1;
 
   switch(directive){
     case 0:
@@ -60,6 +60,27 @@ void loop()
       break;
     case 1:
       buildRails();
+      break;
+    case 2:
+      killRails();
+      break;
+    case 3:
+      killBase();
+      break;
+    case 4:
+      turnAllOff();
+      break;
+    case 5:
+      turnAllOn();
+      break;
+    case 6:
+      turnAllOff();
+      break;
+    case 7:
+      turnAllOn();
+      break;
+    case 8:
+      turnAllOff();
       break;
   }
 }
@@ -72,9 +93,8 @@ void loop()
 void nextDirective()
 {
   startTime = millis();
-  Serial.println(startTime);
 
-  if(directive < 2)
+  if(directive < 8)
     directive++;
   else
     directive = 0;
@@ -89,7 +109,7 @@ void buildBase()
     bitSet(leds[0], 0);
     bitSet(leds[0], 3);
     updateShiftRegister(0);
-    currentBasePin++;
+    currentBasePin = 3;
   } else{
     if(timeElapsed > timeDelay){
       bitSet(leds[0], 1);
@@ -108,22 +128,104 @@ void buildBase()
 void buildRails()
 {
   if(timeElapsed > currentRailPin*timeDelay){
-    int railIndex = 1;
+    int railChunk = 1;
     int pinIndex = currentRailPin;
 
     if(currentRailPin > 7){
-      railIndex = 2;
+      railChunk = 2;
       pinIndex = currentRailPin - 8;
     }
 
-    bitSet(leds[railIndex], pinIndex);
-    updateShiftRegister(railIndex);
+    bitSet(leds[railChunk], pinIndex);
+    updateShiftRegister(railChunk);
 
     currentRailPin++;
 
     if(currentRailPin == 16)
       nextDirective();
   }
+}
+
+
+
+// Turn off the rails, one pin at a time
+void killRails()
+{
+  if(timeElapsed > (16-currentRailPin)*timeDelay){
+    int railChunk = 1;
+    int pinIndex = currentRailPin;
+
+    if(currentRailPin > 7){
+      railChunk = 2;
+      pinIndex = currentRailPin - 8;
+    }
+
+    bitClear(leds[railChunk], pinIndex);
+    updateShiftRegister(railChunk);
+
+    currentRailPin--;
+
+    if(currentRailPin < 0){
+      currentRailPin = 0;
+      nextDirective();
+    }
+  }
+}
+
+
+
+// Kill the base from the outside in
+void killBase()
+{
+  if(currentBasePin == 3){
+    bitClear(leds[0], 0);
+    bitClear(leds[0], 3);
+    updateShiftRegister(0);
+    currentBasePin = 0;
+  } else{
+    if(timeElapsed > timeDelay){
+      bitClear(leds[0], 1);
+      bitClear(leds[0], 2);
+      updateShiftRegister(0);
+    }
+
+    if(timeElapsed > timeDelay*5)
+      nextDirective();
+  }
+}
+
+
+
+// Turn all the pins on at the same time
+void turnAllOn()
+{
+  for(int i=0; i<sizeof(leds); i++){
+    for(int j=0; j<8; j++){
+      bitSet(leds[i], j);
+    }
+    
+    updateShiftRegister(i);
+  }
+
+  if(timeElapsed > timeDelay*5)
+    nextDirective();
+}
+
+
+
+// Turn all the pins off at the same time
+void turnAllOff()
+{
+  for(int i=0; i<sizeof(leds); i++){
+    for(int j=0; j<8; j++){
+      bitClear(leds[i], j);
+    }
+
+    updateShiftRegister(i);
+  }  
+  
+  if(timeElapsed > timeDelay*5)
+    nextDirective();
 }
 
 
