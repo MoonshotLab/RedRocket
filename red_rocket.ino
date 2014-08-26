@@ -1,10 +1,15 @@
+// Set up the shift registers
 const int registers = 3;
 
 const int clockPins[registers] = {2, 5, 8};
 const int latchPins[registers] = {3, 6, 9};
 const int dataPins[registers] = {4, 7, 10};
 
+// Store the LED Arrays as byte data
 byte leds[registers] = {0, 0, 0};
+
+// Potentiometer for controlling speed
+const int potentiometer = A0;
 
 // A general time delay for all animations
 int timeDelay = 200;
@@ -26,24 +31,29 @@ int currentBasePin = 0;
 void setup()
 {
   Serial.begin(9600);
-  
+
   startTime = millis();
 
   for(int i=0; i<registers; i++){
     pinMode(clockPins[i], OUTPUT);
     pinMode(latchPins[i], OUTPUT);
     pinMode(dataPins[i], OUTPUT);
-    
+
     updateShiftRegister(i);
   }
+
+  pinMode(potentiometer, INPUT);
 }
 
 
 
-void loop() 
+void loop()
 {
   timeElapsed = millis() - startTime;
   
+  int potValue = analogRead(potentiometer);
+  timeDelay = map(potValue, 240, 990, 50, 2000);
+
   switch(directive){
     case 0:
       buildBase();
@@ -100,17 +110,17 @@ void buildRails()
   if(timeElapsed > currentRailPin*timeDelay){
     int railIndex = 1;
     int pinIndex = currentRailPin;
-  
+
     if(currentRailPin > 7){
       railIndex = 2;
       pinIndex = currentRailPin - 8;
     }
-  
+
     bitSet(leds[railIndex], pinIndex);
     updateShiftRegister(railIndex);
-    
+
     currentRailPin++;
-    
+
     if(currentRailPin == 16)
       nextDirective();
   }
@@ -125,3 +135,4 @@ void updateShiftRegister(int index)
    shiftOut(dataPins[index], clockPins[index], MSBFIRST, leds[index]);
    digitalWrite(latchPins[index], HIGH);
 }
+
